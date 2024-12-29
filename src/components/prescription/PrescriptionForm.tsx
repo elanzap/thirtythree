@@ -1,36 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { VitalSignsForm } from './VitalSignsForm';
 import { DiagnosisForm } from './DiagnosisForm';
 import { MedicationList } from './MedicationList';
 import { LabTestList } from './LabTestList';
 import { PrescriptionActions } from './PrescriptionActions';
 import { usePrescription } from '../../hooks/usePrescription';
-import { generateVisitId, generatePrescriptionId } from '../../utils/idGenerator';
+import { generateVisitId } from '../../utils/idGenerator';
 import { useDoctorStore } from '../../stores/doctorStore';
+import { usePatientStore } from '../../stores/patientStore';
 import type { DiagnosisTemplate, Patient, Doctor } from '../../types';
 
 interface PrescriptionFormProps {
   patientId: string;
-  patient: Patient;
   onSubmit: (prescriptionData: any) => void;
   initialData?: any;
 }
 
 export const PrescriptionForm: React.FC<PrescriptionFormProps> = ({ 
   patientId, 
-  patient,
   onSubmit,
   initialData 
 }) => {
   const { doctors } = useDoctorStore();
+  const { getPatientById } = usePatientStore();
+  const [patient, setPatient] = useState<Patient | null>(null);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedConsultationType, setSelectedConsultationType] = useState<'Pay' | 'Review'>('Pay');
 
   const [ids] = useState(() => ({
     visitId: initialData?.visitId || generateVisitId(),
-    prescriptionId: initialData?.prescriptionId || generatePrescriptionId()
+    prescriptionId: initialData?.prescriptionId || `RX-${Date.now()}`
   }));
   
+  // Fetch patient details when component mounts
+  useEffect(() => {
+    const fetchedPatient = getPatientById(patientId);
+    if (fetchedPatient) {
+      setPatient(fetchedPatient);
+    }
+  }, [patientId]);
+
+  // Only proceed if patient is loaded
+  if (!patient) {
+    return <div>Loading patient details...</div>;
+  }
+
   const { 
     prescription, 
     updateVitalSigns, 

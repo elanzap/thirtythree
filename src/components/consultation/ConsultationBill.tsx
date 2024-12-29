@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { loadPrescriptions } from '../../utils/storage';
 import { useDoctorStore } from '../../stores/doctorStore';
+import { usePrescriptionStore } from '../../stores/prescriptionStore';
 
 interface ConsultationBill {
   id: string;
@@ -25,13 +25,19 @@ export const ConsultationBill: React.FC = () => {
   const [savedBills, setSavedBills] = useState<ConsultationBill[]>([]);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [activeTab, setActiveTab] = useState<'create' | 'view'>('create');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [foundPrescriptions, setFoundPrescriptions] = useState<any[]>([]);
   const { doctors } = useDoctorStore();
+  const { searchPrescriptions, addPrescription, debugPrintPrescriptions } = usePrescriptionStore();
 
   useEffect(() => {
     const bills = localStorage.getItem('consultationBills');
     if (bills) {
       setSavedBills(JSON.parse(bills));
     }
+    // Log available prescriptions on component mount
+    const storeSearchResults = searchPrescriptions('');
+    console.log('Store Search Results:', storeSearchResults);
   }, []);
 
   const getNextBillNumber = () => {
@@ -47,22 +53,10 @@ export const ConsultationBill: React.FC = () => {
       return;
     }
 
-    const prescriptions = loadPrescriptions();
-    console.log('Available Prescriptions:', prescriptions);
-    console.log('Searching for Prescription ID:', prescriptionId);
-
-    if (!prescriptions || prescriptions.length === 0) {
-      setError('No prescriptions found in the system');
-      return;
-    }
-
-    const searchId = prescriptionId.trim();
-    const prescription = prescriptions.find(p => {
-      const prescriptionMainId = p.id?.toString().trim();
-      const prescriptionSecondaryId = p.prescriptionId?.toString().trim();
-      return prescriptionMainId === searchId || prescriptionSecondaryId === searchId;
-    });
-
+    const storeResults = searchPrescriptions(prescriptionId);
+    console.log('Store Search Results:', storeResults);
+    
+    const prescription = storeResults[0];
     if (!prescription) {
       setError(`Prescription not found. Please check the ID and try again.`);
       return;
@@ -79,7 +73,7 @@ export const ConsultationBill: React.FC = () => {
 
     const newBill: ConsultationBill = {
       id: getNextBillNumber(),
-      prescriptionId: searchId,
+      prescriptionId: prescriptionId,
       patientName: prescription.patientName || '',
       age: prescription.age?.toString() || '',
       gender: prescription.gender || '',
@@ -93,6 +87,7 @@ export const ConsultationBill: React.FC = () => {
     };
 
     console.log('Generated Bill:', newBill);
+    console.log('Prescription Details:', prescription);
     setBill(newBill);
     setError('');
   };
@@ -173,7 +168,7 @@ export const ConsultationBill: React.FC = () => {
           <span className="text-gray-600">Discount ({bill.discount}%):</span>
           <span className="font-medium text-black">-₹{(bill.subtotal * (bill.discount / 100)).toFixed(2)}</span>
         </div>
-        <div className="flex justify-between items-center pt-2 border-t font-bold">
+        <div className="flex justify-between text-lg font-bold border-t pt-3">
           <span>Total Amount:</span>
           <span>₹{bill.total.toFixed(2)}</span>
         </div>
@@ -184,6 +179,27 @@ export const ConsultationBill: React.FC = () => {
       </div>
     </div>
   );
+
+  const handleSearch = () => {
+    console.log('Searching for prescription ID:', prescriptionId);
+    debugPrintPrescriptions();
+    const storeResults = searchPrescriptions(prescriptionId);
+    console.log('Store Search Results:', storeResults);
+    
+    setFoundPrescriptions(storeResults);
+  };
+
+  // Add a method to manually add a prescription for debugging
+  const addTestPrescription = () => {
+    const testPrescription = {
+      patientId: 'test-patient-id',
+      patientName: 'Test Patient',
+      diagnoses: ['Test Diagnosis'],
+      medications: [],
+    };
+    const addedPrescription = addPrescription(testPrescription);
+    console.log('Added Test Prescription:', addedPrescription);
+  };
 
   return (
     <div className="w-full max-w-[1440px] mx-auto px-6">
@@ -290,6 +306,12 @@ export const ConsultationBill: React.FC = () => {
                 className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 Generate Bill
+              </button>
+              <button
+                onClick={addTestPrescription}
+                className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                Add Test Prescription
               </button>
             </div>
 

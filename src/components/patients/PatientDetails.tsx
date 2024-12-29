@@ -11,7 +11,7 @@ import { usePrescriptionStore } from '../../stores/prescriptionStore';
 interface PatientDetailsProps {
   patient: Patient;
   onBack: () => void;
-  onNewPrescription: (patient: Patient) => void;
+  onNewPrescription: (patientId: string) => void;
 }
 
 export const PatientDetails: React.FC<PatientDetailsProps> = ({
@@ -198,6 +198,10 @@ export const PatientDetails: React.FC<PatientDetailsProps> = ({
     );
   };
 
+  const handleNewPrescription = () => {
+    onNewPrescription(patient.patientId);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -215,7 +219,7 @@ export const PatientDetails: React.FC<PatientDetailsProps> = ({
             </div>
           </div>
           <button 
-            onClick={() => onNewPrescription(patient)}
+            onClick={handleNewPrescription}
             className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-md text-sm hover:bg-indigo-100 transition-colors"
           >
             New Prescription

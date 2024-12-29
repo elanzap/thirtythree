@@ -1,7 +1,7 @@
 import React from 'react';
 import { Save, Printer } from 'lucide-react';
 import type { Prescription } from '../../types';
-import { generatePrescriptionPDF } from '../../utils/pdfGenerator';
+import { generatePrescriptionPDF } from '../../utils/pdf/prescriptionPdfGenerator';
 
 interface PrescriptionActionsProps {
   prescription: Partial<Prescription>;
@@ -14,27 +14,18 @@ export const PrescriptionActions: React.FC<PrescriptionActionsProps> = ({
 }) => {
   const handleSaveAndPrint = async () => {
     try {
-      // Generate PDF and get the blob URL
-      const pdfResult = await generatePrescriptionPDF(prescription, true);
+      // Generate PDF inline
+      await generatePrescriptionPDF(prescription, 'inline');
       
-      if (!pdfResult) {
-        throw new Error('Failed to generate PDF');
-      }
-
-      // Update prescription with PDF details
+      // Prepare prescription data for saving
       const updatedPrescription = {
         ...prescription,
-        pdfBlob: pdfResult.blob,
-        pdfUrl: pdfResult.url,
         date: new Date().toISOString(), // Add current timestamp
         status: 'completed'
       };
 
-      // Save the prescription first
+      // Save the prescription
       onSave(updatedPrescription);
-
-      // Open PDF in new window
-      window.open(pdfResult.url, '_blank');
     } catch (error) {
       console.error('Error generating prescription PDF:', error);
       alert('Error generating prescription PDF. Please try again.');

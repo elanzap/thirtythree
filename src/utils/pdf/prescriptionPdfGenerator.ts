@@ -11,7 +11,6 @@ const formatPrescriptionDetails = (prescription: Partial<Prescription>) => {
     specialization: globalSettings.doctorSpecialization || 'Physician & Consultant (General Medicine)'
   };
 
-  // Ensure we get patient details from all possible sources
   const patientName = prescription.patientName || prescription.patient?.name || 'Unknown Patient';
   const patientGender = prescription.gender || prescription.patient?.gender || 'Not Specified';
   const patientAge = prescription.age || prescription.patient?.age?.toString() || 'Not Specified';
@@ -48,7 +47,10 @@ const formatPrescriptionDetails = (prescription: Partial<Prescription>) => {
   };
 };
 
-export const generatePrescriptionPDF = async (prescription: Partial<Prescription>, returnBlob: boolean = false): Promise<{ blob: Blob; url: string } | void> => {
+export const generatePrescriptionPDF = async (
+  prescription: Partial<Prescription>, 
+  displayMode: 'blob' | 'inline' = 'blob'
+): Promise<string | void> => {
   if (!prescription) {
     console.error('No prescription provided');
     throw new Error('No prescription provided');
@@ -57,7 +59,6 @@ export const generatePrescriptionPDF = async (prescription: Partial<Prescription
   const doc = new jsPDF();
   const details = formatPrescriptionDetails(prescription);
   
-  // Add clinic logo if available
   const clinicLogo = getGlobalSettings().clinicLogo;
   if (clinicLogo) {
     try {
@@ -67,7 +68,6 @@ export const generatePrescriptionPDF = async (prescription: Partial<Prescription
     }
   }
 
-  // Header - Clinic Details (Left Side)
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.text(details.clinic.name, 50, 20);
@@ -79,7 +79,6 @@ export const generatePrescriptionPDF = async (prescription: Partial<Prescription
   doc.text(details.clinic.phone, 50, 35);
   doc.text(details.clinic.website, 50, 40);
 
-  // Header - Doctor Details (Right Side)
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text(details.doctor.name, 140, 20);
@@ -90,15 +89,12 @@ export const generatePrescriptionPDF = async (prescription: Partial<Prescription
   doc.text(details.doctor.specialization, 140, 30);
   doc.text(details.doctor.regNo, 140, 35);
 
-  // Prescription Details
-  doc.line(15, 45, 195, 45); // Horizontal line
+  doc.line(15, 45, 195, 45); 
 
-  // Prescription ID and Date
   doc.setFontSize(10);
   doc.text(`Prescription ${details.prescription.id}`, 15, 55);
   doc.text(`Date : ${details.prescription.date}`, 140, 55);
 
-  // Patient Details - Left Column
   let y = 65;
   doc.text('OPD ID', 15, y);
   doc.text(': ' + details.prescription.id, 60, y);
@@ -133,19 +129,16 @@ export const generatePrescriptionPDF = async (prescription: Partial<Prescription
   doc.text('Consultant Doctor', 15, y);
   doc.text(': ' + details.doctor.name, 60, y);
 
-  // Symptoms 
   y += 15;
   doc.setFont('helvetica', 'bold');
   doc.text('Symptoms:', 15, y);
   doc.setFont('helvetica', 'normal');
   doc.text(details.prescription.symptoms, 25, y + 7);
 
-  // Medications
   y += 25;
   doc.setFont('helvetica', 'bold');
   doc.text('Medicines', 15, y);
 
-  // Medication Table Headers
   y += 7;
   doc.setFontSize(9);
   doc.text('#', 15, y);
@@ -156,7 +149,6 @@ export const generatePrescriptionPDF = async (prescription: Partial<Prescription
   doc.text('Duration', 160, y);
   doc.text('Instruction', 185, y);
 
-  // Medication Rows
   doc.setFont('helvetica', 'normal');
   details.prescription.medications.forEach((med, index) => {
     y += 7;
@@ -173,7 +165,6 @@ export const generatePrescriptionPDF = async (prescription: Partial<Prescription
     doc.text(med.instructions, 185, y);
   });
 
-  // Lab Tests
   if (details.prescription.labTests.length > 0) {
     y += 15;
     doc.setFont('helvetica', 'bold');
@@ -189,66 +180,84 @@ export const generatePrescriptionPDF = async (prescription: Partial<Prescription
     });
   }
 
-  // Additional Advice
   if (details.prescription.advice) {
     y += 15;
     doc.setFont('helvetica', 'normal');
     doc.text(details.prescription.advice, 15, y);
   }
 
-  if (returnBlob) {
+  // Generate PDF based on display mode
+  if (displayMode === 'blob') {
     const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    return { blob, url };
+    return URL.createObjectURL(blob);
   } else {
-    try {
-      const pdfDataUri = doc.output('datauristring');
-      
-      // Create a temporary iframe in the current window
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'fixed';
-      iframe.style.top = '0';
-      iframe.style.left = '0';
-      iframe.style.width = '100%';
-      iframe.style.height = '100%';
-      iframe.style.backgroundColor = 'rgba(0,0,0,0.8)';
-      iframe.style.zIndex = '9999';
-      iframe.style.border = 'none';
-      
-      // Add close button
-      const closeButton = document.createElement('button');
-      closeButton.innerHTML = '×';
-      closeButton.style.position = 'fixed';
-      closeButton.style.right = '20px';
-      closeButton.style.top = '20px';
-      closeButton.style.zIndex = '10000';
-      closeButton.style.backgroundColor = '#fff';
-      closeButton.style.border = 'none';
-      closeButton.style.borderRadius = '50%';
-      closeButton.style.width = '40px';
-      closeButton.style.height = '40px';
-      closeButton.style.fontSize = '24px';
-      closeButton.style.cursor = 'pointer';
-      closeButton.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
-      
-      closeButton.onclick = () => {
-        document.body.removeChild(iframe);
-        document.body.removeChild(closeButton);
-        document.body.style.overflow = 'auto';
-      };
-      
-      // Set iframe content
-      iframe.src = pdfDataUri;
-      
-      // Prevent body scrolling when PDF is open
-      document.body.style.overflow = 'hidden';
-      
-      // Add elements to page
-      document.body.appendChild(iframe);
-      document.body.appendChild(closeButton);
-    } catch (error) {
-      console.error('Error displaying PDF:', error);
-      throw error;
-    }
+    return new Promise<void>((resolve, reject) => {
+      try {
+        const pdfDataUri = doc.output('datauristring');
+        
+        // Create modal container
+        const modalContainer = document.createElement('div');
+        modalContainer.id = 'prescription-pdf-modal';
+        modalContainer.innerHTML = `
+          <div style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+          ">
+            <div style="
+              width: 80%;
+              height: 90%;
+              background-color: white;
+              border-radius: 8px;
+              position: relative;
+              overflow: hidden;
+            ">
+              <button id="close-pdf-modal" style="
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background-color: #f44336;
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                font-size: 24px;
+                cursor: pointer;
+                z-index: 10000;
+              ">×</button>
+              <iframe src="${pdfDataUri}" style="
+                width: 100%;
+                height: 100%;
+                border: none;
+              "></iframe>
+            </div>
+          </div>
+        `;
+
+        // Add to document
+        document.body.appendChild(modalContainer);
+
+        // Add close event listener
+        const closeButton = document.getElementById('close-pdf-modal');
+        if (closeButton) {
+          closeButton.addEventListener('click', () => {
+            document.body.removeChild(modalContainer);
+          });
+        }
+
+        resolve();
+      } catch (error) {
+        console.error('Error creating PDF modal:', error);
+        reject(error);
+      }
+    });
   }
 };

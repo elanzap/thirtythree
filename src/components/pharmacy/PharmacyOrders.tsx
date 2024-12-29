@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { usePharmacyStore } from '../../stores/pharmacyStore';
+import { usePrescriptionStore } from '../../stores/prescriptionStore';
 import { loadPrescriptions } from '../../utils/storage';
 import { PharmacyBill } from '../../types/pharmacy';
 import { PharmacyBillPDF } from './PharmacyBillPDF';
@@ -27,6 +28,7 @@ interface PharmacyBill {
 
 export const PharmacyOrders: React.FC = () => {
   const { pharmacyItems, getBatchesForMedicine } = usePharmacyStore();
+  const { searchPrescriptions, addPrescription } = usePrescriptionStore();
   const [prescriptionId, setPrescriptionId] = useState('');
   const [bill, setBill] = useState<PharmacyBill>({
     patientName: '',
@@ -203,90 +205,146 @@ export const PharmacyOrders: React.FC = () => {
     }
   };
 
-  const generateBill = () => {
+  const handleSearchPrescription = () => {
     if (!prescriptionId.trim()) {
       setError('Please enter a prescription ID');
       return;
     }
 
-    const prescriptions = loadPrescriptions();
-    console.log('Available Prescriptions:', prescriptions);
     console.log('Searching for Prescription ID:', prescriptionId);
-
-    if (!prescriptions || prescriptions.length === 0) {
-      setError('No prescriptions found in the system');
-      return;
-    }
-
-    const searchId = prescriptionId.trim();
-    const prescription = prescriptions.find(p => {
-      const prescriptionMainId = p.id?.toString().trim();
-      const prescriptionSecondaryId = p.prescriptionId?.toString().trim();
-      console.log('Comparing:', { 
-        mainId: prescriptionMainId, 
-        secondaryId: prescriptionSecondaryId, 
-        searchId 
-      });
-      return prescriptionMainId === searchId || prescriptionSecondaryId === searchId;
-    });
-
-    if (!prescription) {
-      setError(`Prescription not found. Please check the ID and try again.`);
-      console.log('Available Prescription IDs:', prescriptions.map(p => ({
-        id: p.id,
-        prescriptionId: p.prescriptionId
-      })));
-      return;
-    }
-
-    console.log('Found Prescription:', prescription);
-
-    const prescribedItems = prescription.medications?.map(med => {
-      const [type, name, strength] = med.name.split(' ');
-      const formattedName = `${type} ${name} ${strength}`;
-      console.log('Looking for medicine:', { 
-        original: med.name,
-        formatted: formattedName
-      });
+    
+    // First, try searching in the prescription store
+    const prescriptionStore = usePrescriptionStore.getState();
+    const storeResults = prescriptionStore.searchPrescriptions(prescriptionId);
+    console.log('Store Search Results:', storeResults);
+    
+    // If store search fails, try loading from storage
+    if (storeResults.length === 0) {
+      const storedPrescriptions = loadPrescriptions();
+      console.log('Stored Prescriptions:', storedPrescriptions);
       
-      const availableBatches = getBatchesForMedicine(formattedName);
-      console.log('Available batches:', availableBatches);
+      const manualSearchResults = storedPrescriptions.filter(p => 
+        p.prescriptionId.toLowerCase() === prescriptionId.toLowerCase() ||
+        p.id.toLowerCase() === prescriptionId.toLowerCase()
+      );
       
-      if (availableBatches.length > 0) {
-        const defaultBatch = availableBatches[0];
+      console.log('Manual Storage Search Results:', manualSearchResults);
+      
+      // If manual search finds something, add it back to the store
+      if (manualSearchResults.length > 0) {
+        manualSearchResults.forEach(prescription => {
+          prescriptionStore.addPrescription(prescription);
+        });
+      }
+      
+      // If still no results, show error
+      if (manualSearchResults.length === 0) {
+        setError('No prescription found. Please check the ID and try again.');
+        console.log('Available Prescription IDs:', storedPrescriptions.map(p => ({
+          id: p.id,
+          prescriptionId: p.prescriptionId
+        })));
+        return;
+      }
+      
+      // Use the first matching prescription
+      const prescription = manualSearchResults[0];
+      
+      // Prepare bill details
+      const billItems = prescription.medications.map(med => {
+        const [type, name, strength] = med.name.split(' ');
+        const formattedName = `${type} ${name} ${strength}`;
+        const availableBatches = getBatchesForMedicine(formattedName);
+        
+        console.log('Medicine Details:', { 
+          original: med.name,
+          formatted: formattedName,
+          availableBatches: availableBatches
+        });
+        
+        // Use first available batch if exists
+        const defaultBatch = availableBatches.length > 0 ? availableBatches[0] : null;
+        
         return {
           medicineName: formattedName,
-          batchNo: defaultBatch.batchNo,
-          expiryDate: defaultBatch.expiryDate,
+          batchNo: defaultBatch?.batchNo || '',
+          expiryDate: defaultBatch?.expiryDate || '',
           quantity: med.quantity || 1,
-          availableQuantity: defaultBatch.availableQuantity !== undefined ? defaultBatch.availableQuantity : defaultBatch.quantity,
-          tax: defaultBatch.tax,
-          amount: defaultBatch.salePrice * (med.quantity || 1)
+          availableQuantity: defaultBatch?.availableQuantity !== undefined 
+            ? defaultBatch.availableQuantity 
+            : defaultBatch?.quantity || 0,
+          tax: defaultBatch?.tax || 0,
+          amount: defaultBatch 
+            ? defaultBatch.salePrice * (med.quantity || 1) 
+            : 0
         };
-      }
-      return null;
-    }).filter(item => item !== null) || [];
-
-    if (prescribedItems.length === 0) {
-      setError('No matching medicines found in pharmacy inventory');
+      });
+      
+      const subtotal = billItems.reduce((sum, item) => sum + item.amount, 0);
+      
+      setBill({
+        patientName: prescription.patientName,
+        age: prescription.age || '',
+        gender: prescription.gender || '',
+        phoneNumber: prescription.phone || '',
+        prescriptionId: prescription.prescriptionId,
+        items: billItems,
+        subtotal,
+        discount: 0,
+        total: subtotal
+      });
+      
+      setError('');
       return;
     }
-
-    const subtotal = prescribedItems.reduce((sum, item) => sum + (item?.amount || 0), 0);
-    const newBill: PharmacyBill = {
-      prescriptionId: searchId,
-      patientName: prescription.patientName || '',
-      age: prescription.age?.toString() || '',
+    
+    // Use the first matching prescription from store
+    const prescription = storeResults[0];
+    
+    // Prepare bill items
+    const billItems = prescription.medications.map(med => {
+      const [type, name, strength] = med.name.split(' ');
+      const formattedName = `${type} ${name} ${strength}`;
+      const availableBatches = getBatchesForMedicine(formattedName);
+      
+      console.log('Medicine Details:', { 
+        original: med.name,
+        formatted: formattedName,
+        availableBatches: availableBatches
+      });
+      
+      // Use first available batch if exists
+      const defaultBatch = availableBatches.length > 0 ? availableBatches[0] : null;
+      
+      return {
+        medicineName: formattedName,
+        batchNo: defaultBatch?.batchNo || '',
+        expiryDate: defaultBatch?.expiryDate || '',
+        quantity: med.quantity || 1,
+        availableQuantity: defaultBatch?.availableQuantity !== undefined 
+          ? defaultBatch.availableQuantity 
+          : defaultBatch?.quantity || 0,
+        tax: defaultBatch?.tax || 0,
+        amount: defaultBatch 
+          ? defaultBatch.salePrice * (med.quantity || 1) 
+          : 0
+      };
+    });
+    
+    const subtotal = billItems.reduce((sum, item) => sum + item.amount, 0);
+    
+    setBill({
+      patientName: prescription.patientName,
+      age: prescription.age || '',
       gender: prescription.gender || '',
-      phoneNumber: prescription.phoneNumber || '',
-      items: prescribedItems as any[],
+      phoneNumber: prescription.phone || '',
+      prescriptionId: prescription.prescriptionId,
+      items: billItems,
       subtotal,
       discount: 0,
       total: subtotal
-    };
-
-    console.log('Generated Bill:', newBill);
-    setBill(newBill);
+    });
+    
     setError('');
   };
 
@@ -464,10 +522,10 @@ export const PharmacyOrders: React.FC = () => {
                 />
               </div>
               <button
-                onClick={generateBill}
+                onClick={handleSearchPrescription}
                 className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                Generate Bill
+                Search Prescription
               </button>
             </div>
 

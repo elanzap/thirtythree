@@ -29,8 +29,15 @@ export const savePatients = (patients: Patient[]): void => {
 
 export const loadPrescriptions = (): Prescription[] => {
   try {
-    const data = localStorage.getItem(STORAGE_KEYS.PRESCRIPTIONS);
-    return data ? JSON.parse(data) : [];
+    const storedPrescriptions = localStorage.getItem(STORAGE_KEYS.PRESCRIPTIONS);
+    if (storedPrescriptions) {
+      const parsedPrescriptions = JSON.parse(storedPrescriptions);
+      console.log('Loaded Prescriptions:', parsedPrescriptions);
+      console.log('Number of Loaded Prescriptions:', parsedPrescriptions.length);
+      console.log('Loaded Prescription IDs:', parsedPrescriptions.map((p: Prescription) => p.prescriptionId));
+      return parsedPrescriptions;
+    }
+    return [];
   } catch (error) {
     console.error('Error loading prescriptions:', error);
     return [];
@@ -39,10 +46,9 @@ export const loadPrescriptions = (): Prescription[] => {
 
 export const savePrescriptions = (prescriptions: Prescription[]): void => {
   try {
-    if (!Array.isArray(prescriptions)) {
-      console.error('Invalid prescriptions data:', prescriptions);
-      return;
-    }
+    console.log('Saving Prescriptions:', prescriptions);
+    console.log('Number of Prescriptions to Save:', prescriptions.length);
+    console.log('Prescription IDs:', prescriptions.map(p => p.prescriptionId));
     localStorage.setItem(STORAGE_KEYS.PRESCRIPTIONS, JSON.stringify(prescriptions));
   } catch (error) {
     console.error('Error saving prescriptions:', error);

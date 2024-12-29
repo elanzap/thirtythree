@@ -54,20 +54,23 @@ export const usePrescriptionStore = create<PrescriptionState & PrescriptionActio
   persist(
     (set, get) => ({
       prescriptions: [],
-
+      
+      // Modify addPrescription to log more details
       addPrescription: (prescriptionData) => {
         const newPrescription: Prescription = {
           ...prescriptionData,
           id: safeUUID(),
-          prescriptionId: `RX-${Date.now()}`,
+          prescriptionId: `RX-${Date.now()}`, // Consistent ID generation
           date: new Date().toISOString(),
           visitId: safeUUID(), // Generate a unique visit ID
         };
 
+        console.log('Adding Prescription:', newPrescription);
+
         set(state => {
           const updatedPrescriptions = [...state.prescriptions, newPrescription];
-          console.log('Prescription Added:', newPrescription);
-          console.log('Total Prescriptions:', updatedPrescriptions.length);
+          console.log('Total Prescriptions After Add:', updatedPrescriptions.length);
+          console.log('All Prescription IDs:', updatedPrescriptions.map(p => p.prescriptionId));
           return { prescriptions: updatedPrescriptions };
         });
 
@@ -103,10 +106,17 @@ export const usePrescriptionStore = create<PrescriptionState & PrescriptionActio
 
       searchPrescriptions: (query) => {
         const lowercaseQuery = query.toLowerCase().trim();
-        return get().prescriptions.filter(prescription => 
+        console.log('Search Query:', lowercaseQuery);
+        console.log('Total Prescriptions:', get().prescriptions.length);
+        console.log('Prescription IDs:', get().prescriptions.map(p => p.prescriptionId));
+        
+        const results = get().prescriptions.filter(prescription => 
           prescription.patientName.toLowerCase().includes(lowercaseQuery) ||
-          prescription.prescriptionId.toLowerCase().includes(lowercaseQuery)
+          prescription.prescriptionId.toLowerCase() === lowercaseQuery
         );
+        
+        console.log('Search Results:', results);
+        return results;
       },
 
       filterPrescriptionsByDateRange: (startDate, endDate, patientId) => {

@@ -87,7 +87,6 @@ const App: React.FC = () => {
           <div className="bg-white rounded-lg shadow p-6 mt-6">
             <PrescriptionForm
               patientId={selectedPatient.id}
-              patient={selectedPatient}
               onSubmit={handlePrescriptionSubmit}
             />
           </div>

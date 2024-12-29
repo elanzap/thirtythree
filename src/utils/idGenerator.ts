@@ -2,7 +2,6 @@
 const STORAGE_KEYS = {
   PATIENT_COUNTER: 'patientCounter',
   VISIT_COUNTER: 'visitCounter',
-  PRESCRIPTION_COUNTER: 'prescriptionCounter'
 } as const;
 
 // Initialize counters if they don't exist
@@ -12,9 +11,6 @@ const initializeCounters = () => {
   }
   if (!localStorage.getItem(STORAGE_KEYS.VISIT_COUNTER)) {
     localStorage.setItem(STORAGE_KEYS.VISIT_COUNTER, '0');
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.PRESCRIPTION_COUNTER)) {
-    localStorage.setItem(STORAGE_KEYS.PRESCRIPTION_COUNTER, '0');
   }
 };
 
@@ -38,14 +34,8 @@ export const generateVisitId = (): string => {
   return `V${number}`;
 };
 
-export const generatePrescriptionId = (): string => {
-  const number = getNextId(STORAGE_KEYS.PRESCRIPTION_COUNTER);
-  return `R${number}`;
-};
-
 // Function to reset all counters (useful for testing or resetting the system)
 export const resetCounters = () => {
   localStorage.setItem(STORAGE_KEYS.PATIENT_COUNTER, '0');
   localStorage.setItem(STORAGE_KEYS.VISIT_COUNTER, '0');
-  localStorage.setItem(STORAGE_KEYS.PRESCRIPTION_COUNTER, '0');
 };
