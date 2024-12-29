@@ -344,7 +344,8 @@ export const AddToPharmacy: React.FC = () => {
                           Expiry
                         </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Qty</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Available Qty</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Purchase Price</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sale Price</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tax %</th>
@@ -371,6 +372,7 @@ export const AddToPharmacy: React.FC = () => {
                             {formatDate(item.expiryDate)}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-gray-500">{item.quantity}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-gray-500">{item.availableQuantity || item.quantity}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-gray-500">₹{item.purchasePrice}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-gray-500">₹{item.salePrice}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-gray-500">{item.tax}%</td>
@@ -381,7 +383,7 @@ export const AddToPharmacy: React.FC = () => {
                       );
                     })}
                     <tr className="bg-gray-50">
-                      <td colSpan={7} className="px-4 py-3 text-right font-medium">
+                      <td colSpan={8} className="px-4 py-3 text-right font-medium">
                         Total Amount:
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">

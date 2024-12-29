@@ -41,6 +41,7 @@ interface PharmacyItem {
   batchNo: string;
   expiryDate: string;
   quantity: number;
+  availableQuantity: number;
   purchasePrice: number;
   salePrice: number;
   tax: number;
@@ -54,10 +55,12 @@ interface PharmacyStore {
   addSupplier: (supplier: Supplier) => void;
   removeSupplier: (id: string) => void;
   addPharmacyItem: (item: PharmacyItem) => void;
+  updatePharmacyItemQuantity: (medicineName: string, batchNo: string, quantityToSubtract: number) => void;
   getBatchesForMedicine: (medicineName: string) => Array<{
     batchNo: string;
     expiryDate: string;
     quantity: number;
+    availableQuantity: number;
     salePrice: number;
     tax: number;
   }>;
@@ -69,56 +72,67 @@ const initialData = loadFromStorage();
 export const usePharmacyStore = create<PharmacyStore>((set, get) => ({
   suppliers: initialData.suppliers,
   pharmacyItems: initialData.pharmacyItems,
+  
   setSuppliers: (suppliers) => {
     set({ suppliers });
     saveToStorage(STORAGE_KEYS.SUPPLIERS, suppliers);
   },
+  
   addSupplier: (supplier) =>
     set((state) => {
       const newSuppliers = [...state.suppliers, supplier];
       saveToStorage(STORAGE_KEYS.SUPPLIERS, newSuppliers);
       return { suppliers: newSuppliers };
     }),
+    
   removeSupplier: (id) =>
     set((state) => {
       const newSuppliers = state.suppliers.filter((supplier) => supplier.id !== id);
       saveToStorage(STORAGE_KEYS.SUPPLIERS, newSuppliers);
       return { suppliers: newSuppliers };
     }),
+    
   addPharmacyItem: (item) =>
     set((state) => {
-      const newItems = [...state.pharmacyItems, item];
+      const newItem = {
+        ...item,
+        availableQuantity: item.quantity // Initialize availableQuantity with quantity
+      };
+      const newItems = [...state.pharmacyItems, newItem];
       saveToStorage(STORAGE_KEYS.PHARMACY_ITEMS, newItems);
       return { pharmacyItems: newItems };
     }),
+
+  updatePharmacyItemQuantity: (medicineName, batchNo, quantityToSubtract) =>
+    set((state) => {
+      const updatedItems = state.pharmacyItems.map(item => {
+        if (item.medicineName === medicineName && item.batchNo === batchNo) {
+          const newAvailableQuantity = Math.max(0, (item.availableQuantity || item.quantity) - quantityToSubtract);
+          return {
+            ...item,
+            availableQuantity: newAvailableQuantity
+          };
+        }
+        return item;
+      });
+      
+      saveToStorage(STORAGE_KEYS.PHARMACY_ITEMS, updatedItems);
+      return { pharmacyItems: updatedItems };
+    }),
+    
   getBatchesForMedicine: (medicineName: string) => {
     const { pharmacyItems } = get();
-    console.log('Getting batches for medicine:', medicineName);
-    
-    // Normalize the medicine name for comparison
     const normalizedSearchName = medicineName.trim().toLowerCase();
     
-    // Find all batches for this medicine
-    const matchingItems = pharmacyItems.filter(item => {
-      const itemMedicineName = item.medicineName.trim().toLowerCase();
-      const isMatch = itemMedicineName === normalizedSearchName;
-      console.log('Comparing:', {
-        searchFor: normalizedSearchName,
-        comparing: itemMedicineName,
-        isMatch,
-        batchNo: item.batchNo
-      });
-      return isMatch;
-    });
-
-    console.log('Found matching items:', matchingItems);
-    
-    return matchingItems.map(item => ({
-      batchNo: item.batchNo,
-      expiryDate: item.expiryDate,
-      quantity: item.quantity,
-      salePrice: item.salePrice,
-      tax: item.tax
-    }));
+    return pharmacyItems
+      .filter(item => item.medicineName.toLowerCase().includes(normalizedSearchName))
+      .map(item => ({
+        batchNo: item.batchNo,
+        expiryDate: item.expiryDate,
+        quantity: item.quantity,
+        availableQuantity: item.availableQuantity || item.quantity,
+        salePrice: item.salePrice,
+        tax: item.tax
+      }));
   }
 }));

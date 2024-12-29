@@ -3,6 +3,7 @@ import { usePharmacyStore } from '../../stores/pharmacyStore';
 import { loadPrescriptions } from '../../utils/storage';
 import { PharmacyBill } from '../../types/pharmacy';
 import { PharmacyBillPDF } from './PharmacyBillPDF';
+import { Eye } from 'lucide-react';
 
 interface PharmacyBill {
   patientName: string;
@@ -257,6 +258,15 @@ export const PharmacyOrders: React.FC = () => {
       total: bill.subtotal * (1 - discount / 100)
     };
 
+    // Update available quantities in pharmacy store
+    currentBill.items.forEach(item => {
+      usePharmacyStore.getState().updatePharmacyItemQuantity(
+        item.medicineName,
+        item.batchNo,
+        item.quantity
+      );
+    });
+
     // Save bill to localStorage with sequential bill number
     const newBill = {
       id: getNextBillNumber(),
@@ -394,7 +404,9 @@ export const PharmacyOrders: React.FC = () => {
                             </select>
                           </td>
                           <td className="px-4 py-3">{currentBatchDetails?.expiryDate || item.expiryDate}</td>
-                          <td className="px-4 py-3 text-right">{currentBatchDetails?.quantity || item.availableQuantity}</td>
+                          <td className="px-4 py-3 text-right">
+                            {currentBatchDetails?.availableQuantity || currentBatchDetails?.quantity || item.availableQuantity || item.quantity}
+                          </td>
                           <td className="px-4 py-3 text-right">₹{currentBatchDetails?.salePrice.toFixed(2) || '0.00'}</td>
                           <td className="px-4 py-3">
                             <input
@@ -461,17 +473,14 @@ export const PharmacyOrders: React.FC = () => {
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient Name</th>
                     <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Discount</th>
                     <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                    <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {savedBills.map((bill) => (
                     <tr
                       key={bill.id}
-                      onClick={() => {
-                        setSelectedBill(bill.id);
-                        setShowPrintPreview(true);
-                      }}
-                      className={`cursor-pointer hover:bg-gray-50 ${
+                      className={`hover:bg-gray-50 ${
                         selectedBill === bill.id ? 'bg-indigo-50' : ''
                       }`}
                     >
@@ -481,11 +490,23 @@ export const PharmacyOrders: React.FC = () => {
                       <td className="px-4 py-3 text-sm">{bill.patientName}</td>
                       <td className="px-4 py-3 text-sm text-right">{bill.discount}%</td>
                       <td className="px-4 py-3 text-sm text-right font-medium">₹{bill.total.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-center">
+                        <button
+                          onClick={() => {
+                            setSelectedBill(bill.id);
+                            setShowPrintPreview(true);
+                          }}
+                          className="p-1 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+                          title="View Bill"
+                        >
+                          <Eye size={18} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {savedBills.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                         No saved bills found
                       </td>
                     </tr>
