@@ -28,13 +28,23 @@ interface PharmacyBill {
 export const PharmacyOrders: React.FC = () => {
   const { pharmacyItems, getBatchesForMedicine } = usePharmacyStore();
   const [prescriptionId, setPrescriptionId] = useState('');
-  const [bill, setBill] = useState<PharmacyBill | null>(null);
+  const [bill, setBill] = useState<PharmacyBill>({
+    patientName: '',
+    age: '',
+    gender: '',
+    phoneNumber: '',
+    prescriptionId: '',
+    items: [],
+    subtotal: 0,
+    discount: 0,
+    total: 0
+  });
   const [error, setError] = useState('');
   const [selectedBatches, setSelectedBatches] = useState<Record<string, string>>({});
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [discount, setDiscount] = useState<number>(0);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
-  const [activeTab, setActiveTab] = useState<'create' | 'view'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'view' | 'new'>('create');
   const [savedBills, setSavedBills] = useState<Array<{
     id: string;
     prescriptionId: string;
@@ -54,6 +64,7 @@ export const PharmacyOrders: React.FC = () => {
     subtotal: number;
     age: string;
     gender: string;
+    phoneNumber: string;
   }>>([]);
   const [selectedBill, setSelectedBill] = useState<string | null>(null);
 
@@ -85,7 +96,7 @@ export const PharmacyOrders: React.FC = () => {
               ...item,
               batchNo: selectedBatchDetails.batchNo,
               expiryDate: selectedBatchDetails.expiryDate,
-              availableQuantity: selectedBatchDetails.quantity,
+              availableQuantity: selectedBatchDetails.availableQuantity !== undefined ? selectedBatchDetails.availableQuantity : selectedBatchDetails.quantity,
               amount: selectedBatchDetails.salePrice * item.quantity,
               tax: selectedBatchDetails.tax
             };
@@ -119,6 +130,7 @@ export const PharmacyOrders: React.FC = () => {
             return {
               ...item,
               quantity,
+              availableQuantity: batchDetails.availableQuantity !== undefined ? batchDetails.availableQuantity : batchDetails.quantity,
               amount: batchDetails.salePrice * quantity
             };
           }
@@ -145,6 +157,48 @@ export const PharmacyOrders: React.FC = () => {
         ...bill,
         discount: newDiscount,
         total: bill.subtotal * (1 - newDiscount / 100)
+      });
+    }
+  };
+
+  const handleMedicineSelect = (index: number, medicineName: string) => {
+    if (bill) {
+      const batches = getBatchesForMedicine(medicineName);
+      const defaultBatch = batches[0];
+      
+      const newItems = [...bill.items];
+      newItems[index] = {
+        ...newItems[index],
+        medicineName,
+        batchNo: defaultBatch?.batchNo || '',
+        expiryDate: defaultBatch?.expiryDate || '',
+        availableQuantity: defaultBatch?.availableQuantity !== undefined ? defaultBatch.availableQuantity : defaultBatch?.quantity || 0,
+        tax: defaultBatch?.tax || 0,
+        amount: (defaultBatch?.salePrice || 0) * newItems[index].quantity
+      };
+      
+      setBill({
+        ...bill,
+        items: newItems,
+        subtotal: newItems.reduce((sum, item) => sum + item.amount, 0)
+      });
+    }
+  };
+
+  const handleAddItem = () => {
+    if (bill) {
+      const newItem = {
+        medicineName: '',
+        batchNo: '',
+        expiryDate: '',
+        quantity: 1,
+        availableQuantity: 0,
+        tax: 0,
+        amount: 0
+      };
+      setBill({
+        ...bill,
+        items: [...bill.items, newItem]
       });
     }
   };
@@ -205,39 +259,34 @@ export const PharmacyOrders: React.FC = () => {
           batchNo: defaultBatch.batchNo,
           expiryDate: defaultBatch.expiryDate,
           quantity: med.quantity || 1,
-          availableQuantity: defaultBatch.quantity,
+          availableQuantity: defaultBatch.availableQuantity !== undefined ? defaultBatch.availableQuantity : defaultBatch.quantity,
           tax: defaultBatch.tax,
           amount: defaultBatch.salePrice * (med.quantity || 1)
         };
       }
-      
-      return {
-        medicineName: formattedName,
-        batchNo: '',
-        expiryDate: '',
-        quantity: med.quantity || 1,
-        availableQuantity: 0,
-        tax: 0,
-        amount: 0
-      };
-    }) || [];
+      return null;
+    }).filter(item => item !== null) || [];
 
-    const mockBill: PharmacyBill = {
+    if (prescribedItems.length === 0) {
+      setError('No matching medicines found in pharmacy inventory');
+      return;
+    }
+
+    const subtotal = prescribedItems.reduce((sum, item) => sum + (item?.amount || 0), 0);
+    const newBill: PharmacyBill = {
+      prescriptionId: searchId,
       patientName: prescription.patientName || '',
-      age: prescription.age || '',
+      age: prescription.age?.toString() || '',
       gender: prescription.gender || '',
-      phoneNumber: prescription.phone || '',
-      prescriptionId: prescriptionId,
-      items: prescribedItems,
-      subtotal: 0,
-      discount: 10,
-      total: 0
+      phoneNumber: prescription.phoneNumber || '',
+      items: prescribedItems as any[],
+      subtotal,
+      discount: 0,
+      total: subtotal
     };
 
-    mockBill.subtotal = mockBill.items.reduce((sum, item) => sum + item.amount, 0);
-    mockBill.total = mockBill.subtotal * (1 - mockBill.discount / 100);
-
-    setBill(mockBill);
+    console.log('Generated Bill:', newBill);
+    setBill(newBill);
     setError('');
   };
 
@@ -251,6 +300,16 @@ export const PharmacyOrders: React.FC = () => {
   const saveBillAndGeneratePdf = () => {
     if (!bill) return;
 
+    if (!bill.patientName.trim()) {
+      setError('Please enter patient name');
+      return;
+    }
+
+    if (bill.items.length === 0) {
+      setError('Please add at least one medicine to the bill');
+      return;
+    }
+
     // Create new bill with current discount
     const currentBill = {
       ...bill,
@@ -258,20 +317,12 @@ export const PharmacyOrders: React.FC = () => {
       total: bill.subtotal * (1 - discount / 100)
     };
 
-    // Update available quantities in pharmacy store
-    currentBill.items.forEach(item => {
-      usePharmacyStore.getState().updatePharmacyItemQuantity(
-        item.medicineName,
-        item.batchNo,
-        item.quantity
-      );
-    });
-
     // Save bill to localStorage with sequential bill number
     const newBill = {
       id: getNextBillNumber(),
       prescriptionId: currentBill.prescriptionId,
       patientName: currentBill.patientName,
+      phoneNumber: currentBill.phoneNumber,
       date: new Date().toLocaleDateString(),
       total: currentBill.total,
       discount: currentBill.discount,
@@ -281,13 +332,44 @@ export const PharmacyOrders: React.FC = () => {
       gender: currentBill.gender
     };
 
-    const updatedBills = [newBill, ...savedBills];
-    setSavedBills(updatedBills);
-    localStorage.setItem('pharmacyBills', JSON.stringify(updatedBills));
+    // Update available quantities in pharmacy store
+    try {
+      currentBill.items.forEach(item => {
+        usePharmacyStore.getState().updatePharmacyItemQuantity(
+          item.medicineName,
+          item.batchNo,
+          item.quantity
+        );
+      });
 
-    // Show print preview with current bill
-    setBill(currentBill);
-    setShowPrintPreview(true);
+      const updatedBills = [newBill, ...savedBills];
+      setSavedBills(updatedBills);
+      localStorage.setItem('pharmacyBills', JSON.stringify(updatedBills));
+
+      // Show print preview with current bill
+      setBill(currentBill);
+      setShowPrintPreview(true);
+      setError('');
+    } catch (err) {
+      setError('Failed to save bill. Please try again.');
+      console.error('Error saving bill:', err);
+    }
+  };
+
+  const handleNewOrder = () => {
+    const newBill: PharmacyBill = {
+      patientName: '',
+      age: '',
+      gender: '',
+      phoneNumber: '',
+      prescriptionId: '',
+      items: [],
+      subtotal: 0,
+      discount: 0,
+      total: 0
+    };
+    setBill(newBill);
+    setError('');
   };
 
   return (
@@ -298,22 +380,65 @@ export const PharmacyOrders: React.FC = () => {
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
             <button
-              onClick={() => setActiveTab('create')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              onClick={() => {
+                setActiveTab('create');
+                setBill({
+                  patientName: '',
+                  age: '',
+                  gender: '',
+                  phoneNumber: '',
+                  prescriptionId: '',
+                  items: [],
+                  subtotal: 0,
+                  discount: 0,
+                  total: 0
+                });
+                setPrescriptionId('');
+                setError('');
+              }}
+              className={`${
                 activeTab === 'create'
                   ? 'border-indigo-500 text-indigo-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
             >
               Create Order
             </button>
             <button
-              onClick={() => setActiveTab('view')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              onClick={() => {
+                setActiveTab('new');
+                handleNewOrder();
+              }}
+              className={`${
+                activeTab === 'new'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+            >
+              New Order
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('view');
+                setBill({
+                  patientName: '',
+                  age: '',
+                  gender: '',
+                  phoneNumber: '',
+                  prescriptionId: '',
+                  items: [],
+                  subtotal: 0,
+                  discount: 0,
+                  total: 0
+                });
+                setPrescriptionId('');
+                setError('');
+              }}
+              className={`${
                 activeTab === 'view'
                   ? 'border-indigo-500 text-indigo-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
             >
               View Bills
             </button>
@@ -321,11 +446,11 @@ export const PharmacyOrders: React.FC = () => {
         </div>
       </div>
 
-      {activeTab === 'create' ? (
-        <>
-          <div className="bg-white p-6 rounded-lg shadow mb-6">
+      {activeTab === 'create' && (
+        <div>
+          <div className="bg-white rounded-lg shadow p-6">
             <div className="flex gap-4 items-end">
-              <div className="flex-1 max-w-md">
+              <div className="flex-1">
                 <label htmlFor="prescriptionId" className="block text-sm font-medium text-gray-700 mb-1">
                   Prescription ID
                 </label>
@@ -334,22 +459,25 @@ export const PharmacyOrders: React.FC = () => {
                   id="prescriptionId"
                   value={prescriptionId}
                   onChange={(e) => setPrescriptionId(e.target.value)}
-                  className="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   placeholder="Enter Prescription ID"
                 />
               </div>
               <button
                 onClick={generateBill}
-                className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 Generate Bill
               </button>
             </div>
-            {error && <p className="text-red-500 mt-2">{error}</p>}
+
+            {error && (
+              <div className="mt-4 text-red-600 text-sm">{error}</div>
+            )}
           </div>
 
           {bill && (
-            <div className="bg-white rounded-lg shadow">
+            <div className="mt-6 bg-white rounded-lg shadow">
               <div className="p-6 border-b">
                 <div className="flex justify-between items-start">
                   <div>
@@ -363,103 +491,362 @@ export const PharmacyOrders: React.FC = () => {
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medicine Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch No</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry Date</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Available</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Sale Price</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 bg-white">
-                    {bill.items.map((item, index) => {
-                      const batches = getBatchesForMedicine(item.medicineName);
-                      const selectedBatch = selectedBatches[item.medicineName] || item.batchNo;
-                      const currentBatchDetails = batches.find(b => b.batchNo === selectedBatch);
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="text-sm text-gray-500">
+                    {bill.items.length} items in bill
+                  </div>
+                  <button
+                    onClick={handleAddItem}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center gap-2"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                    </svg>
+                    Add Medicine
+                  </button>
+                </div>
 
-                      return (
-                        <tr key={index}>
-                          <td className="px-4 py-3">{item.medicineName}</td>
-                          <td className="px-4 py-3">
-                            <select
-                              value={selectedBatch}
-                              onChange={(e) => handleBatchSelect(item.medicineName, e.target.value)}
-                              className="border rounded px-3 py-1.5 min-w-[160px] focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            >
-                              <option value="">Select Batch</option>
-                              {batches.length > 0 ? (
-                                batches.map(batch => (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medicine Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch No</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry Date</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Available</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Sale Price</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 bg-white">
+                      {bill.items.map((item, index) => {
+                        const batches = getBatchesForMedicine(item.medicineName);
+                        const selectedBatch = selectedBatches[item.medicineName] || item.batchNo;
+                        const currentBatchDetails = batches.find(b => b.batchNo === selectedBatch);
+                        const availableQty = currentBatchDetails?.availableQuantity !== undefined ? currentBatchDetails.availableQuantity : currentBatchDetails?.quantity || 0;
+
+                        return (
+                          <tr key={index}>
+                            <td className="px-4 py-3">
+                              <select
+                                value={item.medicineName}
+                                onChange={(e) => handleMedicineSelect(index, e.target.value)}
+                                className="border rounded px-3 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              >
+                                <option value="">Select Medicine</option>
+                                <optgroup label="All Medicines">
+                                  {Array.from(new Set(pharmacyItems.map(item => item.medicineName))).map((name, idx) => (
+                                    <option key={`medicine-${idx}`} value={name}>
+                                      {name}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              </select>
+                            </td>
+                            <td className="px-4 py-3">
+                              <select
+                                value={selectedBatch}
+                                onChange={(e) => handleBatchSelect(item.medicineName, e.target.value)}
+                                className="border rounded px-3 py-1.5 min-w-[160px] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              >
+                                <option value="">Select Batch</option>
+                                {batches.map(batch => (
                                   <option key={batch.batchNo} value={batch.batchNo}>
                                     Batch {batch.batchNo} (Qty: {batch.quantity})
                                   </option>
-                                ))
-                              ) : (
-                                <option value="" disabled>No batches available</option>
-                              )}
-                            </select>
-                          </td>
-                          <td className="px-4 py-3">{currentBatchDetails?.expiryDate || item.expiryDate}</td>
-                          <td className="px-4 py-3 text-right">
-                            {currentBatchDetails?.availableQuantity || currentBatchDetails?.quantity || item.availableQuantity || item.quantity}
-                          </td>
-                          <td className="px-4 py-3 text-right">₹{currentBatchDetails?.salePrice.toFixed(2) || '0.00'}</td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              min="1"
-                              value={quantities[item.medicineName] || item.quantity}
-                              onChange={(e) => handleQuantityChange(item.medicineName, e.target.value)}
-                              className="border rounded px-3 py-1.5 w-24 text-right focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-right">₹{item.amount.toFixed(2)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-4 py-3">{currentBatchDetails?.expiryDate || ''}</td>
+                            <td className="px-4 py-3 text-right">{availableQty}</td>
+                            <td className="px-4 py-3 text-right">₹{currentBatchDetails?.salePrice.toFixed(2) || '0.00'}</td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="number"
+                                min="1"
+                                value={quantities[item.medicineName] || item.quantity}
+                                onChange={(e) => handleQuantityChange(item.medicineName, e.target.value)}
+                                className="border rounded px-3 py-1.5 w-24 text-right focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-right">₹{item.amount.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-right">
+                              <button
+                                onClick={() => {
+                                  const newItems = bill.items.filter((_, i) => i !== index);
+                                  const subtotal = newItems.reduce((sum, item) => sum + item.amount, 0);
+                                  setBill({
+                                    ...bill,
+                                    items: newItems,
+                                    subtotal,
+                                    total: subtotal * (1 - bill.discount / 100)
+                                  });
+                                }}
+                                className="text-red-600 hover:text-red-800"
+                                title="Remove Item"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
 
-              <div className="p-6 border-t bg-gray-50">
-                <div className="flex justify-between items-start">
+                <div className="mt-6 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="font-medium">₹{bill.subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Discount (%):</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={discount}
+                      onChange={(e) => handleDiscountChange(e.target.value)}
+                      className="border rounded px-3 py-1.5 w-24 text-right focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-lg font-bold border-t pt-3">
+                    <span>Total:</span>
+                    <span>₹{bill.total.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end space-x-4">
                   <button
                     onClick={saveBillAndGeneratePdf}
-                    className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    disabled={!bill || bill.items.length === 0}
                   >
-                    View and Print
+                    Save Bill
                   </button>
-                  <div className="max-w-xs space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Subtotal:</span>
-                      <span className="font-medium">₹{bill.subtotal.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Discount (%):</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={discount}
-                        onChange={(e) => handleDiscountChange(e.target.value)}
-                        className="border rounded px-3 py-1.5 w-24 text-right focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div className="flex justify-between items-center text-lg font-bold border-t pt-3">
-                      <span>Total:</span>
-                      <span>₹{bill.total.toFixed(2)}</span>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
           )}
-        </>
-      ) : (
+        </div>
+      )}
+
+      {activeTab === 'new' && (
+        <div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label htmlFor="patientName" className="block text-sm font-medium text-gray-700">
+                  Patient Name
+                </label>
+                <input
+                  type="text"
+                  id="patientName"
+                  value={bill?.patientName || ''}
+                  onChange={(e) => bill && setBill({ ...bill, patientName: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  id="phoneNumber"
+                  value={bill?.phoneNumber || ''}
+                  onChange={(e) => bill && setBill({ ...bill, phoneNumber: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="age" className="block text-sm font-medium text-gray-700">
+                  Age
+                </label>
+                <input
+                  type="text"
+                  id="age"
+                  value={bill?.age || ''}
+                  onChange={(e) => bill && setBill({ ...bill, age: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="gender" className="block text-sm font-medium text-gray-700">
+                  Gender
+                </label>
+                <select
+                  id="gender"
+                  value={bill?.gender || ''}
+                  onChange={(e) => bill && setBill({ ...bill, gender: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            {error && (
+              <div className="mt-4 text-red-600 text-sm">{error}</div>
+            )}
+
+            <div className="mt-6 flex justify-between items-center">
+              <div className="text-sm text-gray-500">
+                {bill?.items.length || 0} items in bill
+              </div>
+              <button
+                onClick={handleAddItem}
+                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+                Add Medicine
+              </button>
+            </div>
+
+            {bill?.items && bill.items.length > 0 && (
+              <div className="mt-6">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medicine Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch No</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry Date</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Available</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Sale Price</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 bg-white">
+                      {bill.items.map((item, index) => {
+                        const batches = getBatchesForMedicine(item.medicineName);
+                        const selectedBatch = selectedBatches[item.medicineName] || item.batchNo;
+                        const currentBatchDetails = batches.find(b => b.batchNo === selectedBatch);
+                        const availableQty = currentBatchDetails?.availableQuantity !== undefined ? currentBatchDetails.availableQuantity : currentBatchDetails?.quantity || 0;
+
+                        return (
+                          <tr key={index}>
+                            <td className="px-4 py-3">
+                              <select
+                                value={item.medicineName}
+                                onChange={(e) => handleMedicineSelect(index, e.target.value)}
+                                className="border rounded px-3 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              >
+                                <option value="">Select Medicine</option>
+                                <optgroup label="All Medicines">
+                                  {Array.from(new Set(pharmacyItems.map(item => item.medicineName))).map((name, idx) => (
+                                    <option key={`medicine-${idx}`} value={name}>
+                                      {name}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              </select>
+                            </td>
+                            <td className="px-4 py-3">
+                              <select
+                                value={selectedBatch}
+                                onChange={(e) => handleBatchSelect(item.medicineName, e.target.value)}
+                                className="border rounded px-3 py-1.5 min-w-[160px] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              >
+                                <option value="">Select Batch</option>
+                                {batches.map(batch => (
+                                  <option key={batch.batchNo} value={batch.batchNo}>
+                                    Batch {batch.batchNo} (Qty: {batch.quantity})
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-4 py-3">{currentBatchDetails?.expiryDate || ''}</td>
+                            <td className="px-4 py-3 text-right">{availableQty}</td>
+                            <td className="px-4 py-3 text-right">₹{currentBatchDetails?.salePrice.toFixed(2) || '0.00'}</td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="number"
+                                min="1"
+                                value={quantities[item.medicineName] || item.quantity}
+                                onChange={(e) => handleQuantityChange(item.medicineName, e.target.value)}
+                                className="border rounded px-3 py-1.5 w-24 text-right focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-right">₹{item.amount.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-right">
+                              <button
+                                onClick={() => {
+                                  const newItems = bill.items.filter((_, i) => i !== index);
+                                  const subtotal = newItems.reduce((sum, item) => sum + item.amount, 0);
+                                  setBill({
+                                    ...bill,
+                                    items: newItems,
+                                    subtotal,
+                                    total: subtotal * (1 - bill.discount / 100)
+                                  });
+                                }}
+                                className="text-red-600 hover:text-red-800"
+                                title="Remove Item"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="font-medium">₹{bill.subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Discount (%):</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={discount}
+                      onChange={(e) => handleDiscountChange(e.target.value)}
+                      className="border rounded px-3 py-1.5 w-24 text-right focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-lg font-bold border-t pt-3">
+                    <span>Total:</span>
+                    <span>₹{bill.total.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end space-x-4">
+                  <button
+                    onClick={saveBillAndGeneratePdf}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    disabled={!bill || bill.items.length === 0}
+                  >
+                    Save Bill
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'view' && (
         <div className="bg-white rounded-lg shadow">
           <div className="grid grid-cols-1 gap-6">
             {/* Bills Table */}
