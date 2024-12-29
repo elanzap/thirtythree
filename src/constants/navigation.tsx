@@ -11,113 +11,108 @@ import {
   Cog,
   Store,
   ClipboardList,
-  Package
+  Package,
+  CreditCard
 } from 'lucide-react';
 
 export const NAVIGATION_ITEMS = [
   {
     id: 'patients',
     text: 'Patients',
-    href: '/patients',
+    href: '#patients',
     icon: Users
   },
   {
     id: 'prescriptions',
     text: 'Prescriptions',
-    href: '/prescriptions',
+    href: '#prescriptions',
     icon: FileText
   },
   {
     id: 'lab-orders',
     text: 'Lab Orders',
-    href: '/lab-orders',
+    href: '#lab-orders',
     icon: Flask
   },
   {
     id: 'pharmacy',
     text: 'Pharmacy',
-    href: '#',
+    href: '#pharmacy',
     icon: Store,
     subItems: [
       {
         id: 'pharmacy-supplier',
         text: 'Suppliers',
-        href: '/pharmacy-supplier',
+        href: '#pharmacy-supplier',
         icon: Package
       },
       {
         id: 'add-to-pharmacy',
         text: 'Add Stock',
-        href: '/add-to-pharmacy',
-        icon: Package
+        href: '#add-to-pharmacy',
+        icon: UserPlus
       },
       {
         id: 'pharmacy-orders',
-        text: 'Pharmacy Orders',
-        href: '/pharmacy-orders',
+        text: 'Orders',
+        href: '#pharmacy-orders',
         icon: ClipboardList
       }
     ]
   },
   {
+    id: 'consultation-bill',
+    text: 'Consultation Bill',
+    href: '#consultation-bill',
+    icon: CreditCard
+  },
+  {
     id: 'settings',
     text: 'Settings',
-    href: '#',
+    href: '#settings',
     icon: Settings,
     subItems: [
       {
         id: 'doctors',
         text: 'Doctors',
-        href: '/doctors',
-        icon: UserPlus
+        href: '#doctors',
+        icon: Activity
       },
       {
-        id: 'diagnoses',
-        text: 'Diagnoses',
-        href: '/diagnoses',
+        id: 'diagnosis',
+        text: 'Diagnosis',
+        href: '#diagnosis',
         icon: Activity
       },
       {
         id: 'diagnostic-tests',
         text: 'Diagnostic Tests',
-        href: '/diagnostic-tests',
+        href: '#diagnostic-tests',
         icon: Flask
-      },
-      {
-        id: 'drugs',
-        text: 'Drugs',
-        href: '/drugs',
-        icon: Pills
       },
       {
         id: 'dose-duration',
         text: 'Dose Duration',
-        href: '/dose-duration',
+        href: '#dose-duration',
         icon: Clock
       },
       {
         id: 'dose-interval',
         text: 'Dose Interval',
-        href: '/dose-interval',
+        href: '#dose-interval',
         icon: Timer
       },
       {
         id: 'dosage',
         text: 'Dosage',
-        href: '/dosage',
+        href: '#dosage',
         icon: Pills
       },
       {
-        id: 'general-settings',
-        text: 'General Settings',
-        href: '/general-settings',
-        icon: Cog
-      },
-      {
-        id: 'global-settings',
-        text: 'Global Settings',
-        href: '/global-settings',
-        icon: Settings
+        id: 'drugs',
+        text: 'Drugs',
+        href: '#drugs',
+        icon: Pills
       }
     ]
   }

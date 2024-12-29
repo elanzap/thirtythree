@@ -1,22 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import { PatientList } from './components/patients/PatientList';
-import { PrescriptionForm } from './components/prescription/PrescriptionForm';
 import { PrescriptionList } from './components/prescription/PrescriptionList';
-import { DiagnosisManager } from './components/diagnosis/DiagnosisManager';
+import { LabOrderInvoice } from './components/lab-orders/LabOrderInvoice';
+import { PharmacySupplier } from './components/pharmacy/PharmacySupplier';
+import { AddToPharmacy } from './components/pharmacy/AddToPharmacy';
+import { PharmacyOrders } from './components/pharmacy/PharmacyOrders';
+import { ConsultationBill } from './components/consultation/ConsultationBill';
 import { DoctorList } from './components/doctors/DoctorList';
-import { Settings } from './components/settings/Settings';
+import { DiagnosisManager } from './components/diagnosis/DiagnosisManager';
 import { DiagnosticTestList } from './components/diagnostic-tests/DiagnosticTestList';
 import { DoseDurationManager } from './components/duration/DoseDurationManager';
 import { DoseIntervalManager } from './components/interval/DoseIntervalManager';
 import { DosageManager } from './components/dosage/DosageManager';
 import { DrugList } from './components/drugs/DrugList';
-import { LabOrderInvoice } from './components/lab-orders/LabOrderInvoice';
-import { GeneralSettings } from './components/settings/GeneralSettings';
-import { GlobalSettings } from './components/settings/GlobalSettings';
-import { PharmacySupplier } from './components/pharmacy/PharmacySupplier';
-import { AddToPharmacy } from './components/pharmacy/AddToPharmacy';
-import { PharmacyOrders } from './components/pharmacy/PharmacyOrders';
+import { PrescriptionForm } from './components/prescription/PrescriptionForm';
 import type { Patient, Prescription } from './types';
 import { loadPatients, savePatients, loadPrescriptions, savePrescriptions } from './utils/storage';
 
@@ -148,9 +146,6 @@ const App: React.FC = () => {
       case 'patients':
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-              Patients
-            </h2>
             <PatientList
               patients={patients || []}
               prescriptions={prescriptions || []}
@@ -163,60 +158,41 @@ const App: React.FC = () => {
       case 'prescriptions':
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-              Prescriptions
-            </h2>
-            <div className="bg-white rounded-lg shadow p-6">
-              <PrescriptionList 
-                prescriptions={prescriptions || []}
-                onUpdatePrescription={handleUpdatePrescription}
-                patients={patients || []}
-              />
-            </div>
+            <PrescriptionList 
+              prescriptions={prescriptions || []}
+              onUpdatePrescription={handleUpdatePrescription}
+              patients={patients || []}
+            />
           </div>
         );
 
       case 'lab-orders':
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-              Lab Orders
-            </h2>
             <LabOrderInvoice prescriptions={prescriptions || []} />
           </div>
         );
 
-      case 'general-settings':
-        return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-              General Settings
-            </h2>
-            <GeneralSettings />
-          </div>
-        );
-
-      case 'global-settings':
-        return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-              Global Settings
-            </h2>
-            <GlobalSettings />
-          </div>
-        );
-
+      case 'pharmacy-supplier':
+        return <PharmacySupplier />;
+      
+      case 'add-to-pharmacy':
+        return <AddToPharmacy />;
+      
+      case 'pharmacy-orders':
+        return <PharmacyOrders />;
+      
+      case 'consultation-bill':
+        return <ConsultationBill />;
+      
       case 'doctors':
         return <DoctorList />;
       
-      case 'diagnoses':
+      case 'diagnosis':
         return <DiagnosisManager />;
       
       case 'diagnostic-tests':
         return <DiagnosticTestList />;
-      
-      case 'drugs':
-        return <DrugList />;
       
       case 'dose-duration':
         return <DoseDurationManager />;
@@ -227,20 +203,20 @@ const App: React.FC = () => {
       case 'dosage':
         return <DosageManager />;
       
-      case 'settings':
-        return <Settings />;
-      
-      case 'pharmacy-orders':
-        return <PharmacyOrders />;
-      
-      case 'pharmacy-supplier':
-        return <PharmacySupplier />;
-      
-      case 'add-to-pharmacy':
-        return <AddToPharmacy />;
+      case 'drugs':
+        return <DrugList />;
       
       default:
-        return null;
+        return (
+          <div className="space-y-6">
+            <PatientList
+              patients={patients || []}
+              prescriptions={prescriptions || []}
+              onSelectPatient={setSelectedPatient}
+              onAddPatient={handleAddPatient}
+            />
+          </div>
+        );
     }
   };
 

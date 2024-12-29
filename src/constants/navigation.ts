@@ -12,7 +12,9 @@ import {
   FileSpreadsheet,
   Building,
   Store,
-  PlusCircle
+  PlusCircle,
+  CreditCard,
+  ShoppingCart
 } from 'lucide-react';
 
 export const NAVIGATION_ITEMS = [
@@ -54,17 +56,17 @@ export const NAVIGATION_ITEMS = [
       },
       {
         id: 'pharmacy-orders',
-        icon: FileSpreadsheet,
+        icon: ShoppingCart,
         text: 'Pharmacy Orders',
         href: '#pharmacy-orders'
-      },
-      {
-        id: 'pharmacy-bills',
-        icon: FileText,
-        text: 'Pharmacy Bills',
-        href: '#pharmacy-bills'
       }
     ]
+  },
+  {
+    id: 'consultation-bill',
+    icon: CreditCard,
+    text: 'Consultation Bill',
+    href: '#consultation-bill'
   },
   {
     id: 'settings',
@@ -73,40 +75,22 @@ export const NAVIGATION_ITEMS = [
     href: '#settings',
     subItems: [
       {
-        id: 'global-settings',
-        icon: Settings,
-        text: 'Global Settings',
-        href: '#global-settings'
-      },
-      {
-        id: 'general-settings',
-        icon: Building,
-        text: 'General Settings',
-        href: '#general-settings'
-      },
-      {
         id: 'doctors',
         icon: UserCog,
         text: 'Doctors',
         href: '#doctors'
       },
       {
-        id: 'diagnoses',
+        id: 'diagnosis',
         icon: Stethoscope,
-        text: 'Diagnoses',
-        href: '#diagnoses'
+        text: 'Diagnosis',
+        href: '#diagnosis'
       },
       {
         id: 'diagnostic-tests',
         icon: TestTubes,
         text: 'Diagnostic Tests',
         href: '#diagnostic-tests'
-      },
-      {
-        id: 'drugs',
-        icon: Tablets,
-        text: 'Drugs',
-        href: '#drugs'
       },
       {
         id: 'dose-duration',
@@ -125,6 +109,12 @@ export const NAVIGATION_ITEMS = [
         icon: Pill,
         text: 'Dosage',
         href: '#dosage'
+      },
+      {
+        id: 'drugs',
+        icon: Tablets,
+        text: 'Drugs',
+        href: '#drugs'
       }
     ]
   }
@@ -134,7 +124,7 @@ export const pharmacyRoutes = [
   {
     name: 'Pharmacy Orders',
     path: '/pharmacy/orders',
-    icon: FileSpreadsheet,
+    icon: ShoppingCart,
   },
   {
     name: 'Add to Pharmacy',
