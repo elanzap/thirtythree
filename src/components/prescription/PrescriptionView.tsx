@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pencil, Printer, FileDown } from 'lucide-react';
+import { Pencil, Printer, FileDown, Activity } from 'lucide-react';
 import type { Prescription } from '../../types';
 import { formatPrescriptionDetails } from '../../utils/prescriptionFormatter';
 import { generatePrescriptionPDF } from '../../utils/pdfGenerator';
@@ -30,6 +30,45 @@ export const PrescriptionView: React.FC<PrescriptionViewProps> = ({
     }
   };
 
+  const renderVitalSignsCard = () => {
+    const { vitalSigns } = prescription;
+    if (!vitalSigns) return null;
+
+    return (
+      <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Activity className="mr-3 text-gray-500" /> Vital Signs
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Blood Pressure</p>
+            <p className="text-lg font-semibold text-gray-900">
+              {vitalSigns.bloodPressure || 'N/A'}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Pulse Rate</p>
+            <p className="text-lg font-semibold text-gray-900">
+              {vitalSigns.pulseRate ? `${vitalSigns.pulseRate} bpm` : 'N/A'}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Temperature</p>
+            <p className="text-lg font-semibold text-gray-900">
+              {vitalSigns.temperature ? `${vitalSigns.temperature}°F` : 'N/A'}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Weight</p>
+            <p className="text-lg font-semibold text-gray-900">
+              {vitalSigns.weight ? `${vitalSigns.weight} kg` : 'N/A'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -47,12 +86,16 @@ export const PrescriptionView: React.FC<PrescriptionViewProps> = ({
             </button>
           </div>
 
+          {renderVitalSignsCard()}
+
           <div className="space-y-6">
             {Object.entries(details).map(([section, content]) => (
-              <div key={section} className="border-b border-gray-200 pb-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">{section}</h3>
-                <div className="text-gray-600 whitespace-pre-line">{content}</div>
-              </div>
+              section !== 'Vital Signs' && (
+                <div key={section} className="border-b border-gray-200 pb-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">{section}</h3>
+                  <div className="text-gray-600 whitespace-pre-line">{content}</div>
+                </div>
+              )
             ))}
           </div>
 

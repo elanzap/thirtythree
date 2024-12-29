@@ -5,9 +5,10 @@ import { generatePatientId } from '../../utils/idGenerator';
 
 interface NewPatientFormProps {
   onSubmit: (patient: Omit<Patient, 'id'>) => void;
+  onClose?: () => void;
 }
 
-export const NewPatientForm: React.FC<NewPatientFormProps> = ({ onSubmit }) => {
+export const NewPatientForm: React.FC<NewPatientFormProps> = ({ onSubmit, onClose }) => {
   const handleSubmit = (patientData: Omit<Patient, 'id' | 'patientId' | 'visits'>) => {
     const newPatient = {
       ...patientData,
@@ -17,5 +18,5 @@ export const NewPatientForm: React.FC<NewPatientFormProps> = ({ onSubmit }) => {
     onSubmit(newPatient);
   };
 
-  return <PatientForm onSubmit={handleSubmit} />;
+  return <PatientForm onSubmit={handleSubmit} onClose={onClose} />;
 };

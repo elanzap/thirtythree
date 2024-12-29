@@ -3,20 +3,19 @@ import type { Patient, Prescription } from '../../types';
 import { User, FileText, Search, History, Plus } from 'lucide-react';
 import { PatientDetails } from './PatientDetails';
 import { NewPatientForm } from './NewPatientForm';
+import { usePatientStore } from '../../stores/patientStore';
+import { usePrescriptionStore } from '../../stores/prescriptionStore';
 
 interface PatientListProps {
-  patients: Patient[];
-  prescriptions: Prescription[];
-  onSelectPatient: (patient: Patient) => void;
-  onAddPatient: (patient: Omit<Patient, 'id'>) => void;
+  onSelectPatient?: (patient: Patient) => void;
 }
 
 export const PatientList: React.FC<PatientListProps> = ({ 
-  patients, 
-  prescriptions,
-  onSelectPatient,
-  onAddPatient
-}) => {
+  onSelectPatient 
+}) => { 
+  const { patients, addPatient } = usePatientStore();
+  const { prescriptions } = usePrescriptionStore();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPatientForDetails, setSelectedPatientForDetails] = useState<Patient | null>(null);
   const [showNewPatientForm, setShowNewPatientForm] = useState(false);
@@ -34,12 +33,14 @@ export const PatientList: React.FC<PatientListProps> = ({
   }, [patients, searchQuery]);
 
   const handleAddPatient = (patientData: Omit<Patient, 'id'>) => {
-    onAddPatient(patientData);
+    addPatient(patientData);
     setShowNewPatientForm(false);
   };
 
   const handleNewPrescription = (patient: Patient) => {
-    onSelectPatient(patient);
+    if (onSelectPatient) {
+      onSelectPatient(patient);
+    }
   };
 
   const handleViewHistory = (patient: Patient) => {
@@ -194,7 +195,10 @@ export const PatientList: React.FC<PatientListProps> = ({
                   </svg>
                 </button>
               </div>
-              <NewPatientForm onSubmit={handleAddPatient} />
+              <NewPatientForm 
+                onSubmit={handleAddPatient} 
+                onClose={() => setShowNewPatientForm(false)} 
+              />
             </div>
           </div>
         </div>

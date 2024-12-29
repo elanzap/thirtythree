@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Layout from './components/Layout';
 import { PatientList } from './components/patients/PatientList';
 import { PrescriptionList } from './components/prescription/PrescriptionList';
@@ -16,98 +16,51 @@ import { DosageManager } from './components/dosage/DosageManager';
 import { DrugList } from './components/drugs/DrugList';
 import { PrescriptionForm } from './components/prescription/PrescriptionForm';
 import type { Patient, Prescription } from './types';
-import { loadPatients, savePatients, loadPrescriptions, savePrescriptions } from './utils/storage';
+import { usePatientStore } from './stores/patientStore';
+import { usePrescriptionStore } from './stores/prescriptionStore';
 
 const App: React.FC = () => {
+  const { patients } = usePatientStore();
+  const { 
+    prescriptions, 
+    addPrescription, 
+    updatePrescription 
+  } = usePrescriptionStore();
+  
   const [activeSection, setActiveSection] = useState('patients');
-  const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
-
-  useEffect(() => {
-    const savedPatients = loadPatients();
-    const savedPrescriptions = loadPrescriptions();
-    if (savedPatients?.length > 0) {
-      setPatients(savedPatients);
-    }
-    if (savedPrescriptions?.length > 0) {
-      setPrescriptions(savedPrescriptions);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (patients?.length > 0) {
-      savePatients(patients);
-    }
-  }, [patients]);
-
-  useEffect(() => {
-    if (prescriptions?.length > 0) {
-      savePrescriptions(prescriptions);
-    }
-  }, [prescriptions]);
-
-  const handleAddPatient = (patientData: Omit<Patient, 'id'>) => {
-    const newPatient: Patient = {
-      ...patientData,
-      id: Math.random().toString(36).substr(2, 9)
-    };
-    setPatients(prev => [...(prev || []), newPatient]);
-  };
 
   const handlePrescriptionSubmit = (prescriptionData: Partial<Prescription>) => {
-    console.error('PRESCRIPTION SUBMISSION:', {
-      prescriptionData,
-      selectedPatient
-    });
-
     if (!selectedPatient) return;
 
-    const finalPrescriptionData: Partial<Prescription> = {
-      ...prescriptionData,
-      patientId: selectedPatient.id,
-      patientName: selectedPatient.name,
-      gender: selectedPatient.gender,
-      age: selectedPatient.age ? selectedPatient.age.toString() : undefined,
-      phone: selectedPatient.phoneNumber,
-      patient: {
-        ...selectedPatient,
-        age: selectedPatient.age ? selectedPatient.age.toString() : undefined
-      }
-    };
+    try {
+      const newPrescription = addPrescription({
+        ...prescriptionData,
+        patientId: selectedPatient.id,
+        patientName: selectedPatient.name,
+        gender: selectedPatient.gender,
+        age: selectedPatient.age.toString(),
+        phone: selectedPatient.phoneNumber,
+      });
 
-    console.error('FINAL PRESCRIPTION DATA:', finalPrescriptionData);
+      // Optional: Generate PDF or perform additional actions
+      // generatePrescriptionPDF(newPrescription);
 
-    const newPrescription = {
-      ...finalPrescriptionData,
-      date: new Date().toISOString(),
-      id: Math.random().toString(36).substr(2, 9)
-    } as Prescription;
-
-    const updatedPrescriptions = [...prescriptions, newPrescription];
-    setPrescriptions(updatedPrescriptions);
-    savePrescriptions(updatedPrescriptions);
-
-    // Generate PDF
-    // generatePrescriptionPDF(newPrescription);
-
-    // Reset selection
-    setSelectedPatient(null);
-    setActiveSection('prescriptions');
+      setSelectedPatient(null);
+      setActiveSection('prescriptions');
+    } catch (error) {
+      console.error('Failed to add prescription:', error);
+      // Optionally show error to user
+    }
   };
 
-  const handleUpdatePrescription = (index: number, updatedPrescription: Partial<Prescription>) => {
-    setPrescriptions(prev => {
-      if (!prev) return [updatedPrescription as Prescription];
-      const newPrescriptions = [...prev];
-      const patient = patients?.find(p => p.id === updatedPrescription.patientId);
-      newPrescriptions[index] = {
-        ...newPrescriptions[index],
-        ...updatedPrescription,
-        patientName: patient?.name || newPrescriptions[index].patientName
-      };
-      return newPrescriptions;
-    });
+  const handleUpdatePrescription = (id: string, updatedPrescription: Partial<Prescription>) => {
+    try {
+      updatePrescription(id, updatedPrescription);
+    } catch (error) {
+      console.error('Failed to update prescription:', error);
+      // Optionally show error to user
+    }
   };
 
   const renderContent = () => {
@@ -146,11 +99,10 @@ const App: React.FC = () => {
       case 'patients':
         return (
           <div className="space-y-6">
-            <PatientList
+            <PatientList 
               patients={patients || []}
               prescriptions={prescriptions || []}
               onSelectPatient={setSelectedPatient}
-              onAddPatient={handleAddPatient}
             />
           </div>
         );
@@ -209,11 +161,10 @@ const App: React.FC = () => {
       default:
         return (
           <div className="space-y-6">
-            <PatientList
+            <PatientList 
               patients={patients || []}
               prescriptions={prescriptions || []}
               onSelectPatient={setSelectedPatient}
-              onAddPatient={handleAddPatient}
             />
           </div>
         );
@@ -221,7 +172,10 @@ const App: React.FC = () => {
   };
 
   return (
-    <Layout activeSection={activeSection} onNavigate={setActiveSection}>
+    <Layout 
+      activeSection={activeSection} 
+      onNavigate={setActiveSection}
+    >
       <div className="max-w-7xl mx-auto">
         {renderContent()}
       </div>

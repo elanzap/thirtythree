@@ -7,6 +7,14 @@ export interface Patient {
   phoneNumber: string;
 }
 
+export interface LabTest {
+  name: string;
+  result?: 'Normal' | 'Abnormal' | 'Pending';
+  value?: string;
+  referenceRange?: string;
+  unit?: string;
+}
+
 export interface Prescription {
   id?: string;
   prescriptionId: string;
@@ -19,7 +27,7 @@ export interface Prescription {
   findings?: string;
   diagnoses?: string[];
   medications?: Medication[];
-  labTests?: string[];
+  labTests?: LabTest[] | string[];
   advice?: string;
   // Additional fields for prescription
   gender?: string;
